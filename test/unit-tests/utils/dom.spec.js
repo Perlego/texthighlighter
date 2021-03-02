@@ -40,6 +40,30 @@ describe("dom utility functionality", () => {
     });
   });
 
+  describe("#unwrap()", () => {
+    it("should remove element being unwrapped from the dom", () => {
+      const deep = text("Deep");
+      const time = span(" Time");
+      const children = [
+        span("Chapter 5"),
+        deep,
+        time
+      ];
+
+      children.forEach((child) => root.appendChild(child));
+      const rootWrapped = dom(root);
+      
+      children.forEach((child, i) => {
+        expect(rootWrapped.getChildIndex(child)).toBe(i);
+      });
+  
+      dom(time).unwrap();
+      expect(rootWrapped.contains(deep)).toBeTrue();
+      expect(rootWrapped.contains(time)).toBeFalse();
+      expect(rootWrapped.textContentExcludingTags([])).toEqual('Chapter 5Deep Time');
+    });
+  });
+
   describe("#getChildIndex()", () => {
     it("should get the correct index for in the element children list for a set of child nodes", () => {
       const children = [
