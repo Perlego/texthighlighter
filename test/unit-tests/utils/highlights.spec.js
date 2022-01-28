@@ -5,6 +5,7 @@ import {
   getElementOffset,
   validateIndependenciaDescriptors,
   findHigherPriorityHighlights,
+  extractRangeRelativeToRootElement,
 } from "../../../src/utils/highlights";
 import {
   span,
@@ -81,6 +82,53 @@ function createShouldShowHighlightNodeFixture() {
     targetNode2,
   );
   return { targetNode1, targetNode2, parentDiv };
+}
+
+function createSubRangeContentFixtures() {
+  const rangeStartNode = text("This is a text node");
+  const subRange1EndNode = text("This is the end text node for subrange 1");
+  const rootElement2 = div(div(rangeStartNode), div(span("Some text!")), div(subRange1EndNode));
+  const rangeEndNode = text("This is the end text node!");
+  const subRange2StartNode = text("This is the start text node for subrange 2");
+  const rootElement3 = div(
+    subRange2StartNode,
+    div(div(span("A span here!")), "something"),
+    div(rangeEndNode),
+  );
+
+  const parentDiv = div(div("Some text here"), rootElement2, rootElement3);
+
+  const range = {
+    startContainer: rangeStartNode,
+    startOffset: 7,
+    endContainer: rangeEndNode,
+    endOffset: 12,
+  };
+
+  const expectedSubRange2 = {
+    startContainer: rangeStartNode,
+    startOffset: 7,
+    endContainer: subRange1EndNode,
+    endOffset: subRange1EndNode.textContent.length - 1,
+  };
+
+  const expectedSubRange3 = {
+    startContainer: subRange2StartNode,
+    startOffset: 0,
+    endContainer: rangeEndNode,
+    endOffset: 12,
+  };
+
+  return {
+    parentDiv,
+    range,
+    rootElement1: parentDiv,
+    expectedSubRange1: range,
+    rootElement2,
+    expectedSubRange2,
+    rootElement3,
+    expectedSubRange3,
+  };
 }
 
 describe("highlighting utility functionality", () => {
@@ -605,6 +653,44 @@ describe("highlighting utility functionality", () => {
     it("Should work for descriptors of the correct length", () => {
       let descriptors = ['<span className="highlighted"></span>', "test1", 10, 5];
       expect(validateIndependenciaDescriptors(descriptors)).toEqual(true);
+    });
+  });
+
+  describe("#extractRangeRelativeToRootElement()", () => {
+    it("should return a range as-is when the entire selection is contained within the given root element", () => {
+      const { parentDiv, rootElement1, expectedSubRange1, range } = createSubRangeContentFixtures();
+      root.appendChild(parentDiv);
+
+      const finalRange = extractRangeRelativeToRootElement(range, rootElement1);
+
+      expect(finalRange.startContainer).toEqual(expectedSubRange1.startContainer);
+      expect(finalRange.endContainer).toEqual(expectedSubRange1.endContainer);
+      expect(finalRange.startOffset).toEqual(expectedSubRange1.startOffset);
+      expect(finalRange.endOffset).toEqual(expectedSubRange1.endOffset);
+    });
+
+    it("should return a sub-range when the start of the selection is contained within the given root element", () => {
+      const { parentDiv, rootElement2, expectedSubRange2, range } = createSubRangeContentFixtures();
+      root.appendChild(parentDiv);
+
+      const finalRange = extractRangeRelativeToRootElement(range, rootElement2);
+
+      expect(finalRange.startContainer).toEqual(expectedSubRange2.startContainer);
+      expect(finalRange.endContainer).toEqual(expectedSubRange2.endContainer);
+      expect(finalRange.startOffset).toEqual(expectedSubRange2.startOffset);
+      expect(finalRange.endOffset).toEqual(expectedSubRange2.endOffset);
+    });
+
+    it("should return a sub-range when the end of the selection is contained within the given root element", () => {
+      const { parentDiv, rootElement3, expectedSubRange3, range } = createSubRangeContentFixtures();
+      root.appendChild(parentDiv);
+
+      const finalRange = extractRangeRelativeToRootElement(range, rootElement3);
+
+      expect(finalRange.startContainer).toEqual(expectedSubRange3.startContainer);
+      expect(finalRange.endContainer).toEqual(expectedSubRange3.endContainer);
+      expect(finalRange.startOffset).toEqual(expectedSubRange3.startOffset);
+      expect(finalRange.endOffset).toEqual(expectedSubRange3.endOffset);
     });
   });
 });

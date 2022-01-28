@@ -9,6 +9,7 @@ import {
   focusHighlightNodes,
   validateIndependenciaDescriptors,
   findHigherPriorityHighlights,
+  extractRangeRelativeToRootElement,
 } from "../utils/highlights";
 import { START_OFFSET_ATTR, LENGTH_ATTR, TIMESTAMP_ATTR } from "../config";
 import dom from "../utils/dom";
@@ -96,6 +97,12 @@ class IndependenciaHighlighter {
       return;
     }
 
+    const rangeRelativeToRootElement = extractRangeRelativeToRootElement(range, this.el);
+    if (!rangeRelativeToRootElement) {
+      return;
+    }
+    console.log({ rangeRelativeToRootElement });
+
     let eventItems = [];
     dom(this.el).turnOffEventHandlers(eventItems);
 
@@ -106,7 +113,7 @@ class IndependenciaHighlighter {
 
       const descriptors = createDescriptors({
         rootElement: this.el,
-        range,
+        range: rangeRelativeToRootElement,
         wrapper,
         excludeNodeNames: this.options.excludeNodes,
         dataAttr: this.options.namespaceDataAttribute,
@@ -114,13 +121,18 @@ class IndependenciaHighlighter {
       });
 
       const { descriptors: processedDescriptors, meta } = this.options.preprocessDescriptors(
-        range,
+        rangeRelativeToRootElement,
         descriptors,
         timestamp,
       );
       if (!meta[this.options.cancelProperty]) {
         this.deserializeHighlights(JSON.stringify(processedDescriptors));
-        this.options.onAfterHighlight(range, processedDescriptors, timestamp, meta);
+        this.options.onAfterHighlight(
+          rangeRelativeToRootElement,
+          processedDescriptors,
+          timestamp,
+          meta,
+        );
       }
     }
 

@@ -11,10 +11,15 @@
  * @typedef {Object} NodesAndOffsetsResult
  * @property {NodeAndOffset[]} nodesAndOffsets
  * @property {string} allText
+ *
+ * @typedef {Object} RangeLite
+ * @property {HTMLElement} startContainer
+ * @property {number} startOffset
+ * @property {HTMLElement} endContainer
+ * @property {number} endOffset
  */
 
 import dom, { NODE_TYPE } from "./dom";
-import { isHighestPriority } from "./priorities";
 import { DATA_ATTR, START_OFFSET_ATTR, LENGTH_ATTR, IGNORE_TAGS } from "../config";
 import { arrayToLower } from "./arrays";
 
@@ -403,6 +408,7 @@ function gatherSiblingsUpToEndNode(startNodeOrContainer, endNode) {
   let foundEndNodeSibling = false;
 
   let currentNode = startNodeOrContainer.nextSibling;
+  console.log({ currentNodeBeforeWhile: currentNode });
   while (currentNode && !foundEndNodeSibling) {
     if (currentNode === endNode || currentNode.contains(endNode)) {
       foundEndNodeSibling = true;
@@ -865,4 +871,78 @@ export function validateIndependenciaDescriptors(descriptors) {
     return true;
   }
   return false;
+}
+
+/**
+ * Extracts a sub-range from a given window selection range
+ * that only includes the given root element and its descendants.
+ *
+ * @param {RangeLite} range The current text selection range for the window.
+ * @param {HTMLElement} rootElement The root element to extract a sub-range for.
+ *
+ * @returns {Range | null} The sub-range or null if rootElement is not in the text selection.
+ */
+export function extractRangeRelativeToRootElement(range, rootElement) {
+  // It's really important that we extract sub-ranges without manipulating
+  // the window selection as there are situations where multiple highlighters
+  // will be extracting sub-ranges from the current selection at the same time.
+  // This is why we won't be using Range.extractContents.
+  const hasStartContainer = dom(rootElement).contains(range.startContainer);
+  const hasEndContainer = dom(rootElement).contains(range.endContainer);
+
+  if (!hasStartContainer && !hasEndContainer) {
+    return null;
+  }
+
+  if (hasStartContainer && !hasEndContainer) {
+    console.log({ range });
+    const endContainer = getLastDescendantTerminalNode(rootElement);
+    const subRange = new Range();
+    subRange.setStart(range.startContainer, range.startOffset);
+    subRange.setEnd(endContainer, endContainer.textContent.length - 1);
+    return subRange;
+  }
+
+  if (!hasStartContainer && hasEndContainer) {
+    console.log({ range });
+    const startContainer = getFirstDescendantTerminalNode(rootElement);
+    const subRange = new Range();
+    subRange.setStart(startContainer, 0);
+    subRange.setEnd(range.endContainer, range.endOffset);
+    return subRange;
+  }
+
+  return range;
+}
+
+/**
+ * Finds the first descendant node without any children
+ * of it's own starting with the given root node.
+ *
+ * @param {Node} rootNode The root node from which to find the first descendant terminal node for.
+ *
+ * @returns {Node} the first descendant terminal node.
+ */
+function getFirstDescendantTerminalNode(rootNode) {
+  let currentNode = rootNode;
+  while (currentNode.childNodes.length > 0) {
+    currentNode = currentNode.childNodes[0];
+  }
+  return currentNode;
+}
+
+/**
+ * Finds the last descendant node without any children
+ * of it's own starting with the given root node.
+ *
+ * @param {Node} rootNode The root node from which to find the last descendant terminal node for.
+ *
+ * @returns {Node} the last descendant terminal node.
+ */
+function getLastDescendantTerminalNode(rootNode) {
+  let currentNode = rootNode;
+  while (currentNode.childNodes.length > 0) {
+    currentNode = currentNode.childNodes[currentNode.childNodes.length - 1];
+  }
+  return currentNode;
 }
